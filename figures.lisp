@@ -7,6 +7,8 @@
    (make-array 4 :initial-contents #((-1 . 1) (-1 . 0) ( 0 . 0) (1 . 0)))
    (make-array 4 :initial-contents #((-1 . 0) ( 0 . 0) ( 1 . 0) (0 . 1)))
    (make-array 4 :initial-contents #((-2 . 0) (-1 . 0) (0 . 0) (1 . 0)))
+   (make-array 4 :initial-contents #((-1 . 0) (0 . 0) (1 . 0) (1 . 1)))
+   (make-array 4 :initial-contents #((-1 . 1) (0 . 1) (0 . 0) (1 . 0)))
    (make-array 4 :initial-contents #((-1 . 0) (0 . 0) (0 . 1) (1 . 1)))))
 
 (defclass figure ()
