@@ -1,17 +1,18 @@
 (in-package :tetris)
 
 (defun load-block (filename)
-  (sdl:load-image filename :image-type :png))
+  (sdl:load-image filename))
 
 (defun make-blocks ()
+  "Create the graphic blocks"
   (list
-   (load-block "red.png")
-   (load-block "blue.png")
-   (load-block "yellow.png")
-   (load-block "orange.png")
-   (load-block "purple.png")
-   (load-block "light-blue.png")
-   (load-block "green.png")))
+   (load-block "red.bmp")
+   (load-block "blue.bmp")
+   (load-block "yellow.bmp")
+   (load-block "orange.bmp")
+   (load-block "purple.bmp")
+   (load-block "light-blue.bmp")
+   (load-block "green.bmp")))
 
 (defclass tetris-board ()
   ((x :reader board-x :initarg :x)
@@ -54,21 +55,25 @@
     (sdl:blit-surface (next-surface board))))
 
 (defmethod choose-next ((board tetris-board))
-  (let ((figure (create-random-figure 3 1)))
+  (let ((figure (create-random-figure 4 0)))
     (setf (slot-value board 'next-figure) figure)
     (sdl:fill-surface sdl:*black* :surface (surface board))
     (sdl:fill-surface sdl:*black* :surface (next-surface board))
     (draw-figure board figure (next-surface board))))
 
 (defmethod new-game ((board tetris-board))
+  "Start a new game"
+  (change-state 'advancing)
   (setf (slot-value board 'board)
 	(make-array (list (board-width board) (board-height board))
 		    :initial-element nil))
-  (setf (slot-value board 'current-figure) (create-random-figure 5 0))
+  (choose-next board)
+  (setf (current-figure board) (next-figure board))
   (choose-next board)
   (setf (aref (slot-value board 'board) 9 17) 0))
 
 (defmethod draw-board ((b tetris-board))
+  "Draw the tetris board"
   (let ((board (slot-value b 'board)))
     (loop
        for y from 0 to (- (board-height b) 1)
@@ -78,22 +83,33 @@
 	     do (when bl (draw-block b x y bl))))))
 
 (defmethod draw-block ((b tetris-board) x y block)
+  "Draw a tetris block"
   (let ((gx (* x block-size))
 	(gy (* y block-size))
 	(color (elt (slot-value b 'blocks) block)))
     (sdl:draw-surface-at-* color gx gy :surface (surface b))))
 
 (defun do-step (board)
-  (if (try-advance-figure board)
-      (advance-figure (current-figure board))
-      (progn 
-	(fix-figure board)
-	(let ((lines (lines-to-erase board)))
-	  (if lines
-	      (erase-lines board lines)))
-	(choose-next board))))
+  "Advance the game of a new step"
+  (case *state*
+    (advancing
+     (if (try-advance-figure board)
+	 (advance-figure (current-figure board))
+	 (if (< (figure-y (current-figure board)) 1)
+	     (change-state 'game-over)
+	     (progn 
+	       (fix-figure board)
+	       (let ((lines (lines-to-erase board)))
+		 (if lines
+		     (erase-lines board lines)))
+	       (choose-next board)))))
+    (removing-lines
+     (change-state 'advancing))
+    (game-over
+     (play-game-over board))))
 
 (defun fix-figure (board)
+  "The figure is fix to is final position on the board"
   (let* ((figure (current-figure board))
 	 (fx (figure-x figure))
 	 (fy (figure-y figure))
@@ -106,6 +122,7 @@
     (setf (current-figure board) (next-figure board))))
 
 (defun test-move (board dir-x dir-y)
+  "Check if the current figure can be move to the desired position"
   (let ((blocks (slot-value (current-figure board) 'blocks)))
     (loop 
        for block across blocks
@@ -114,6 +131,7 @@
        always (empty-square board x y))))
 
 (defun test-rotate (board)
+  "Check if the current figure can be rotated"
   (let ((blocks (slot-value (current-figure board) 'blocks))
 	(f (current-figure board)))
     (loop
@@ -125,6 +143,7 @@
        always (empty-square board test-x test-y))))
 
 (defun empty-square (tb x y)
+  "Check if a square is empty"
   (let ((board (slot-value tb 'board)))
     (or (< y 0)
 	(and (>= x 0) 
@@ -133,6 +152,7 @@
 	     (null (aref board x y))))))
 
 (defun move-figure (board dir-x dir-y)
+  "Move the figure to its next position"
   (let* ((f (current-figure board))
 	 (x (figure-x f))
 	 (y (figure-y f))
@@ -142,16 +162,18 @@
       (make-move f new-x new-y))))
 
 (defun try-rotate-figure (board)
+  "Try to rotate the figure to see if can be done"
   (let ((f (current-figure board)))
     (if (test-rotate board)
 	(rotate-figure f))))
 
 (defun try-advance-figure (board)
+  "Check if the figure can advance a line"
   (let* ((f (current-figure board))
 	 (fx (figure-x f))
 	 (fy (+ (figure-y f) 1)))
     (loop
-/       for block across (slot-value f 'blocks)
+       for block across (slot-value f 'blocks)
        for x = (car block)
        for y = (cdr block)
        for new-x = (+ x fx)
@@ -159,6 +181,7 @@
        always (empty-square board new-x new-y))))
 
 (defun lines-to-erase (tb)
+  "Returns the full lines to erase"
   (let ((board (slot-value tb 'board))
 	(full-lines nil))
     (loop
@@ -170,12 +193,14 @@
     full-lines))
 
 (defun erase-lines (tb lines)
-  (declaim (optimize (debug 1)))
+  "Erase the full lines"
+  (declare (optimize (debug 1)))
   (loop
      for line in (sort lines #'<)
      do (erase-line tb line)))
 
 (defun erase-line (tb line)
+  "Erase a full line and lower the rest of the board"
   (let ((board (slot-value tb 'board)))
     (loop
        for l from line downto 1
@@ -183,3 +208,7 @@
 	     for x from 0 to (1- (board-width tb))
 	     do (setf (aref board x l) 
 		      (aref board x (1- l)))))))
+
+(defun play-game-over (board)
+  (sdl:draw-box-* 5 5 (* 10 block-size) (* 2 block-size) 
+		  :surface (surface board)))

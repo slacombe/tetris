@@ -1,6 +1,3 @@
-(defpackage :tetris
-  (:use :cl))
-
 (in-package :tetris)
 
 ;; Size of each tetris block
@@ -16,6 +13,8 @@
 	  (accel nil))
       (new-game board)
       (sdl:with-events ()
+	;; Just loop and process the user events until
+	;; game over or ESC is hit
 	(:quit-event () t)
 	(:key-down-event (:key key) 
 	 (when (sdl:key= key :sdl-key-escape)
@@ -37,8 +36,10 @@
 
 	 (incf count)
 	 (when (or (zerop (mod count 120)) accel)
+	   ;; Advance game
 	   (do-step board))
 	
+	 ;; Draw the board
 	 (draw board)
 	 
 	 (sdl:update-display))))))
